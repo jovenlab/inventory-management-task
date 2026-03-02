@@ -25,7 +25,7 @@ The basic system includes:
 
 ---
 
-## 🚀 Your Tasks (Complete ALL 3)
+## 🚀 Your Tasks (Complete ALL 4)
 
 ---
 
@@ -66,7 +66,13 @@ Build a complete stock transfer system that allows moving inventory between ware
 
 Design the data structure, API contracts, and business logic as you see fit for a production system.
 
-**B. Transfer Page UI**
+**B. Data Integrity**
+
+Transfers must be **atomic** — if the server crashes or an error occurs mid-transfer, neither warehouse should end up with incorrect stock levels. Consider what happens if the process fails after deducting from the source warehouse but before crediting the destination.
+
+Document your approach to ensuring data integrity in code comments or your video walkthrough.
+
+**C. Transfer Page UI**
 
 Create a `/transfers` page that provides:
 - A form to initiate stock transfers between warehouses
@@ -85,20 +91,57 @@ Design the interface to be intuitive for warehouse managers performing daily ope
 
 Build a low stock alert and reorder recommendation system that helps warehouse managers proactively manage inventory levels.
 
-**Key Functionality:**
+**A. Alert System**
 - Identify products that need reordering based on current stock levels and reorder points
 - Categorize inventory by stock status (critical, low, adequate, overstocked)
-- Provide actionable reorder recommendations
+- Provide actionable reorder recommendations with calculated quantities (see below)
 - Allow managers to track and update alert status
 - Integrate alerts into the main dashboard
 
-**Implementation Details:**
+**B. Reorder Quantity Calculation**
+
+Don't just flag low stock — calculate a **recommended reorder quantity** for each product. Your formula should factor in:
+
+- Current total stock across all warehouses
+- The product's reorder point
+- **Transfer velocity** — how quickly stock is moving between warehouses (derived from the transfer history you built in Task 2)
+- A **configurable lead time** (in days) representing how long a reorder takes to arrive
+
+Design and document your formula. Explain your assumptions and how you handle edge cases (e.g., new products with no transfer history, zero velocity).
+
+**C. Implementation Details**
 - Create an `/alerts` page for viewing and managing alerts
 - Calculate stock across all warehouses
 - Persist alert tracking data (create `data/alerts.json`)
 - Design appropriate status workflows and user actions
 
 Use your judgment to determine appropriate thresholds, calculations, and user workflows for a production inventory management system.
+
+---
+
+## Task 4: Bug Investigation & System Design
+
+**Objective:** Demonstrate debugging ability and architectural thinking.
+
+### A. Bug Hunt
+
+We've received reports from warehouse managers that **inventory values on the dashboard become incorrect after certain product management operations**. The values are fine initially but drift after normal use of the system.
+
+- Investigate the existing codebase to find the root cause
+- Document your debugging process (what you checked, how you traced it)
+- Fix the bug
+- Explain the fix in your video walkthrough
+
+### B. Scaling Write-up
+
+The current system uses JSON file storage and is designed for a small operation. Suppose GreenSupply Co grows to **500 warehouses, 10,000 products, and 50 concurrent users**.
+
+In your README, write 1-2 paragraphs addressing:
+- What breaks first in the current architecture?
+- How would you evolve this system to handle that scale?
+- What specific technologies or patterns would you introduce, and why?
+
+This is not a trick question — we want to understand how you think about systems, not just how you write code.
 
 ---
 
@@ -148,11 +191,13 @@ Record a video demonstration covering:
 **Feature Demo (4-5 minutes)**
 - Redesigned dashboard walkthrough (demonstrate responsiveness)
 - Stock transfer workflow (show both successful and error scenarios)
-- Alert system functionality
+- Alert system functionality and reorder calculations
+- Bug investigation: explain how you found and fixed it
 
 **Code Explanation (3-4 minutes)**
 - Key technical decisions and approach
-- Most challenging aspects and solutions
+- How you ensured transfer atomicity
+- Your reorder quantity formula and the reasoning behind it
 - Code structure highlights
 
 **Reflection (1-2 minutes)**
@@ -203,7 +248,7 @@ If you have extra time, consider adding:
 - TypeScript
 - Additional features you think add value
 
-**Important:** Complete all 3 core tasks before attempting bonuses. Quality of required features matters more than quantity of extras.
+**Important:** Complete all 4 core tasks before attempting bonuses. Quality of required features matters more than quantity of extras.
 
 ---
 
@@ -226,16 +271,24 @@ A: This is solely for technical assessment. Your code will not be used commercia
 
 ---
 
+## 🧠 What We're Looking For
+
+This assessment goes beyond "can you build features." We're evaluating:
+
+- **Reasoning over output** — We care more about *why* you made a decision than how much code you wrote. A well-reasoned formula with clear documentation beats a complex implementation you can't explain.
+- **Debugging ability** — Can you trace through unfamiliar code, form a hypothesis, and verify it?
+- **Data integrity thinking** — Do you consider what happens when things go wrong, not just when they go right?
+- **Architectural awareness** — Do you understand the system you're building on, including its limitations?
+- **Clean, maintainable code** — Professional structure, proper error handling, good naming.
+- **Communication** — Your video and written documentation should be clear and well-organized.
+
+You are welcome to use any tools you like, including AI assistants. We are evaluating the quality of your *decisions and understanding*, not whether you typed every character yourself.
+
+---
+
 ## 🚀 Final Notes
 
-This assessment is designed to simulate real-world development scenarios. We're looking for:
-- Clean, maintainable code
-- Thoughtful problem-solving
-- Professional UI/UX
-- Proper error handling
-- Good communication skills (via your video)
-
-Do your best work, document your decisions, and show us how you approach building production applications.
+Do your best work, document your decisions, and show us how you think — not just what you can build.
 
 Good luck! 💪
 
