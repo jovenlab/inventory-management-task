@@ -18,7 +18,15 @@ export default function handler(req, res) {
   } else if (req.method === 'PUT') {
     const index = products.findIndex((p) => p.id === parseInt(id));
     if (index !== -1) {
-      products[index] = { ...products[index], ...req.body, id: parseInt(id) };
+      // Sanitize numeric fields for data consistency
+      const numericFields = ['unitCost', 'reorderPoint'];
+      const sanitizedData = { ...req.body };
+      numericFields.forEach(field => {
+        if (sanitizedData[field] !== undefined) {
+          sanitizedData[field] = parseInt(sanitizedData[field]);
+        }
+      });
+      products[index] = { ...products[index], ...sanitizedData, id: parseInt(id) };
       fs.writeFileSync(filePath, JSON.stringify(products, null, 2));
       res.status(200).json(products[index]);
     } else {
