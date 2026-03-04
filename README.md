@@ -295,3 +295,47 @@ Good luck! 💪
 ---
 
 **Setup issues?** Verify Node.js is installed and you're using a modern browser. If problems persist, document them in your submission.
+
+
+
+-----------------------------------------------------------------------------------------------------------------
+
+✅ Implementation Summary – Task 1 (Dashboard Redesign)
+
+Name: Joven P. Labiste
+Task Completed: Task 1 – Redesign & Enhance the Dashboard
+
+Summary of what’s in place for Task 1: Redesign & Enhance the Dashboard:
+1. Eco-friendly theme and styling
+- src/theme.js – MUI theme with forest green (#2d6a4f), sage (#52796f), light greens, and neutrals; DM Sans typography; soft shadows and borders.
+- src/styles/globals.css – DM Sans font import, background #f8faf8, text color #1b4332.
+- src/pages/_app.js – Wrapped in ThemeProvider and CssBaseline so the theme applies app-wide.
+
+2. Key business metrics (top cards)
+- Inventory value – Total value of stock (unit cost × quantity). 
+- Total units – Sum of all stock quantities. 
+- Products – Number of products. 
+- Warehouses – Number of warehouses. 
+- Low stock items – Count of products below reorder point (card highlighted when > 0).
+
+3. Data visualizations (Recharts)
+- Inventory value by category – Pie chart with category breakdown and tooltips in dollars. 
+- Stock by warehouse – Bar chart of total units per warehouse.
+
+4. Inventory overview
+- Search – Filter by SKU, product name, or category. 
+- Status filters – Chips: “All”, “Low stock”, “In stock”. 
+- Desktop/tablet – Table with green header, row highlighting for low stock, status chips. 
+- Mobile – Card list with left border (green = in stock, amber = low stock), same info as table.
+
+5. Loading and error handling
+- Loading – Skeleton placeholders for metrics, charts, and table while data is fetched. 
+- Error – Alert and short message if any of the three API calls fail; nav still visible.
+
+6. Responsive behavior
+- Metrics – Grid: 1 column on xs, 2 on sm, 3 on md, 5 on lg. 
+- Charts – Side-by-side on md+, stacked on small screens; ResponsiveContainer for chart width. 
+- Nav – Toolbar wraps on small screens. 
+- Table – Replaced by inventory cards on sm and below.
+
+The dashboard now uses the sustainable theme, shows the main metrics and charts, improves the inventory overview with search and filters, and stays usable on all screen sizes with clear loading and error states. Run npm run dev and open the app to try it; the build failure was an environment/sandbox EPERM (spawn) issue, not from these code changes.
