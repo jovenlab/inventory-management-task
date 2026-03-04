@@ -375,20 +375,89 @@ export default function Home() {
           </Grid>
 
           {/* Inventory overview */}
-          <Typography variant="h5" gutterBottom>
+          <Typography variant="h5" gutterBottom fontWeight={600}>
             Inventory overview
           </Typography>
 
-          <TableContainer component={Paper}>
-              <Table>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'center' }}>
+            <TextField
+              size="small"
+              placeholder="Search by SKU, name, category..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+                sx: { bgcolor: 'background.paper', borderRadius: 2 },
+              }}
+              sx={{ minWidth: 240 }}
+            />
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Chip
+                label="All"
+                onClick={() => setStatusFilter('all')}
+                color={statusFilter === 'all' ? 'primary' : 'default'}
+                variant={statusFilter === 'all' ? 'filled' : 'outlined'}
+              />
+              <Chip
+                label="Low stock"
+                onClick={() => setStatusFilter('low')}
+                color={statusFilter === 'low' ? 'warning' : 'default'}
+                variant={statusFilter === 'low' ? 'filled' : 'outlined'}
+              />
+              <Chip
+                label="In stock"
+                onClick={() => setStatusFilter('ok')}
+                color={statusFilter === 'ok' ? 'success' : 'default'}
+                variant={statusFilter === 'ok' ? 'filled' : 'outlined'}
+              />
+            </Box>
+          </Box>
+
+          {isMobile ? (
+            <Grid container spacing={2}>
+              {filteredOverview.map((item) => (
+                <Grid item xs={12} key={item.id}>
+                  <Card
+                    sx={{
+                      borderLeft: 4,
+                      borderColor: item.isLowStock ? 'warning.main' : 'primary.light',
+                      bgcolor: item.isLowStock ? 'warning.light' : 'background.paper',
+                    }}
+                  >
+                    <CardContent>
+                      <Typography variant="subtitle2" color="text.secondary">{item.sku}</Typography>
+                      <Typography variant="subtitle1" fontWeight={600}>{item.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">{item.category}</Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                        <Typography variant="body2">Stock: <strong>{item.totalQuantity}</strong></Typography>
+                        <Typography variant="body2">Reorder: <strong>{item.reorderPoint}</strong></Typography>
+                      </Box>
+                      <Chip
+                        size="small"
+                        label={item.isLowStock ? 'Low stock' : 'In stock'}
+                        color={item.isLowStock ? 'warning' : 'success'}
+                        sx={{ mt: 1 }}
+                      />
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <Table size={isTablet ? 'small' : 'medium'}>
                 <TableHead>
-                  <TableRow >
-                    <TableCell><strong>SKU</strong></TableCell>
-                    <TableCell><strong>Product Name</strong></TableCell>
-                    <TableCell><strong>Category</strong></TableCell>
-                    <TableCell align="right"><strong>Total Stock</strong></TableCell>
-                    <TableCell align="right"><strong>Reorder Point</strong></TableCell>
-                    <TableCell><strong>Status</strong></TableCell>
+                  <TableRow sx={{ bgcolor: 'primary.main' }}>
+                    <TableCell sx={{ color: 'primary.contrastText', fontWeight: 600 }}>SKU</TableCell>
+                    <TableCell sx={{ color: 'primary.contrastText', fontWeight: 600 }}>Product</TableCell>
+                    <TableCell sx={{ color: 'primary.contrastText', fontWeight: 600 }}>Category</TableCell>
+                    <TableCell align="right" sx={{ color: 'primary.contrastText', fontWeight: 600 }}>Total stock</TableCell>
+                    <TableCell align="right" sx={{ color: 'primary.contrastText', fontWeight: 600 }}>Reorder point</TableCell>
+                    <TableCell sx={{ color: 'primary.contrastText', fontWeight: 600 }}>Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -396,31 +465,34 @@ export default function Home() {
                     <TableRow
                       key={item.id}
                       sx={{
-                        backgroundColor: item.isLowStock ? '#fff3e0': 'inherit'
+                        bgcolor: item.isLowStock ? 'warning.light' : 'background.paper',
+                        '&:hover': { bgcolor: item.isLowStock ? 'warning.light' : 'action.hover' },
                       }}
                     >
                       <TableCell>{item.sku}</TableCell>
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{item.category}</TableCell>
-                      <TableCell align="right">{item.totalQuantity}</TableCell>
-                      <TableCell align="right">{item.reorderPoint}</TableCell>
+                      <TableCell align="right">{item.totalQuantity.toLocaleString()}</TableCell>
+                      <TableCell align="right">{item.reorderPoint.toLocaleString()}</TableCell>
                       <TableCell>
-                        {item.isLowStock ? (
-                          <Typography color="warning.main" fontWeight="bold">
-                            Low Stock
-                          </Typography>
-                        ): (
-                          <Typography color='success.main'>
-                            In Stock
-                          </Typography>
-                        )}
+                        <Chip
+                          size="small"
+                          label={item.isLowStock ? 'Low stock' : 'In stock'}
+                          color={item.isLowStock ? 'warning' : 'success'}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
 
+          {filteredOverview.length === 0 && (
+            <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+              No items match your filters.
+            </Typography>
+          )}
         </Container>
       </Box>
     </>
