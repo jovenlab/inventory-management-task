@@ -53,6 +53,7 @@ function useDashboardData() {
   const [products, setProducts] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [stock, setStock] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -62,15 +63,25 @@ function useDashboardData() {
     setError(null);
 
     Promise.all([
-      fetch(`${API_BASE}/api/products`).then((r) => (r.ok ? r.json() : Promise.reject(new Error('Products failed')))),
-      fetch(`${API_BASE}/api/warehouses`).then((r) => (r.ok ? r.json() : Promise.reject(new Error('Warehouses failed')))),
-      fetch(`${API_BASE}/api/stock`).then((r) => (r.ok ? r.json() : Promise.reject(new Error('Stock failed')))),
+      fetch(`${API_BASE}/api/products`).then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error('Products failed'))
+      ),
+      fetch(`${API_BASE}/api/warehouses`).then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error('Warehouses failed'))
+      ),
+      fetch(`${API_BASE}/api/stock`).then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error('Stock failed'))
+      ),
+      fetch(`${API_BASE}/api/alerts?leadTimeDays=7`).then((r) =>
+        r.ok ? r.json() : []
+      ),
     ])
-      .then(([productsData, warehousesData, stockData]) => {
+      .then(([productsData, warehousesData, stockData, alertsData]) => {
         if (!cancelled) {
           setProducts(Array.isArray(productsData) ? productsData : []);
           setWarehouses(Array.isArray(warehousesData) ? warehousesData : []);
           setStock(Array.isArray(stockData) ? stockData : []);
+          setAlerts(Array.isArray(alertsData) ? alertsData : []);
         }
       })
       .catch((err) => {
@@ -82,7 +93,7 @@ function useDashboardData() {
 
     return () => { cancelled = true; };
   }, []);
-  return { products, warehouses, stock, loading, error };
+  return { products, warehouses, stock, alerts, loading, error };
 }
 
 function DashboardSkeleton() {
@@ -122,7 +133,7 @@ export default function Home() {
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
 
-  const { products, warehouses, stock, loading, error } = useDashboardData();
+  const { products, warehouses, stock, alerts, loading, error } = useDashboardData();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'low' | 'ok'
 
@@ -188,6 +199,13 @@ export default function Home() {
     });
   }, [warehouses, stock]);
 
+  const openAlertsCount = useMemo(() => {
+    if (!Array.isArray(alerts) || alerts.length === 0) return 0;
+    return alerts.filter(
+      (a) => a && a.needsReorder && a.workflowStatus !== 'resolved'
+    ).length;
+  }, [alerts]);
+
   if (loading) {
     return (
       <>
@@ -245,6 +263,7 @@ export default function Home() {
           <Button color="inherit" component={Link} href="/warehouses">Warehouses</Button>
           <Button color="inherit" component={Link} href="/stock">Stock Levels</Button>
           <Button color="inherit" component={Link} href="/transfers">Transfers</Button>
+          <Button color="inherit" component={Link} href="/alerts">Alerts</Button>
         </Toolbar>
       </AppBar>
 
@@ -317,16 +336,58 @@ export default function Home() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={4} lg={2}>
-              <Card sx={{ height: '100%', bgcolor: lowStockCount > 0 ? 'warning.light' : 'background.paper', border: lowStockCount > 0 ? 1 : 0, borderColor: 'warning.dark' }}>
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Card
+                sx={{
+                  height: '100%',
+                  bgcolor:
+                    lowStockCount > 0 || openAlertsCount > 0
+                      ? 'warning.light'
+                      : 'background.paper',
+                  border:
+                    lowStockCount > 0 || openAlertsCount > 0 ? 1 : 0,
+                  borderColor: 'warning.dark',
+                }}
+              >
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <WarningAmberIcon sx={{ mr: 1, color: lowStockCount > 0 ? 'warning.dark' : 'text.secondary' }} />
-                    <Typography variant="subtitle2" color="text.secondary">Low Stock Items</Typography>
+                  <WarningAmberIcon
+                      sx={{
+                        mr: 1,
+                        color:
+                          lowStockCount > 0 || openAlertsCount > 0
+                            ? 'warning.dark'
+                            : 'text.secondary',
+                      }}
+                    />
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Low stock & alerts
+                  </Typography>
                   </Box>
-                  <Typography variant="h5" fontWeight={700} color={lowStockCount > 0 ? 'warning.dark' : 'primary.dark'}>
+                    <Typography
+                      variant="h5"
+                      fontWeight={700}
+                      color={
+                        lowStockCount > 0 || openAlertsCount > 0
+                          ? 'warning.dark'
+                          : 'primary.dark'
+                      }
+                    >
                     {lowStockCount}
                   </Typography>
+                  
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {`Open alerts: ${openAlertsCount}`}
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    component={Link}
+                    href="/alerts"
+                    sx={{ mt: 1.5 }}
+                  >
+                    View alerts
+                  </Button>
                 </CardContent>
               </Card>
             </Grid>
