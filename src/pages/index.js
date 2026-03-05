@@ -200,6 +200,7 @@ export default function Home() {
             <Button color="inherit" component={Link} href="/products">Products</Button>
             <Button color="inherit" component={Link} href="/warehouses">Warehouses</Button>
             <Button color="inherit" component={Link} href="/stock">Stock Levels</Button>
+            <Button color="inherit" component={Link} href="/transfers">Transfers</Button>
           </Toolbar>
         </AppBar>
         <DashboardSkeleton />
@@ -219,6 +220,7 @@ export default function Home() {
             <Button color="inherit" component={Link} href="/products">Products</Button>
             <Button color="inherit" component={Link} href="/warehouses">Warehouses</Button>
             <Button color="inherit" component={Link} href="/stock">Stock Levels</Button>
+            <Button color="inherit" component={Link} href="/transfers">Transfers</Button>
           </Toolbar>
         </AppBar>
         <Container sx={{ mt: 4, mb: 4 }}>
@@ -242,6 +244,7 @@ export default function Home() {
           <Button color="inherit" component={Link} href="/products">Products</Button>
           <Button color="inherit" component={Link} href="/warehouses">Warehouses</Button>
           <Button color="inherit" component={Link} href="/stock">Stock Levels</Button>
+          <Button color="inherit" component={Link} href="/transfers">Transfers</Button>
         </Toolbar>
       </AppBar>
 
