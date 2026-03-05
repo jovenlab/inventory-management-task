@@ -3,13 +3,13 @@
     "id": 1,
     "productId": 1,
     "warehouseId": 1,
-    "quantity": 250
+    "quantity": 200
   },
   {
     "id": 2,
     "productId": 1,
     "warehouseId": 2,
-    "quantity": 150
+    "quantity": 200
   },
   {
     "id": 3,
@@ -27,13 +27,13 @@
     "id": 5,
     "productId": 3,
     "warehouseId": 1,
-    "quantity": 2500
+    "quantity": 2000
   },
   {
     "id": 6,
     "productId": 3,
     "warehouseId": 2,
-    "quantity": 1800
+    "quantity": 2300
   },
   {
     "id": 7,
@@ -60,4 +60,3 @@
     "quantity": 700
   }
 ]
-

@@ -75,6 +75,9 @@ export default function AddStock() {
           <Button color="inherit" component={Link} href="/stock">
             Stock Levels
           </Button>
+          <Button color="inherit" component={Link} href="/transfers">
+            Transfers
+          </Button>
         </Toolbar>
       </AppBar>
 

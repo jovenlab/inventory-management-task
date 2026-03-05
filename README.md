@@ -339,3 +339,62 @@ Summary of what’s in place for Task 1: Redesign & Enhance the Dashboard:
 - Table – Replaced by inventory cards on sm and below.
 
 The dashboard now uses the sustainable theme, shows the main metrics and charts, improves the inventory overview with search and filters, and stays usable on all screen sizes with clear loading and error states. Run npm run dev and open the app to try it; the build failure was an environment/sandbox EPERM (spawn) issue, not from these code changes.
+
+
+
+✅ Implementation Summary – Task 2 (Stock Transfer System)
+
+Name: Joven P. Labiste
+Task Completed: Task 2 – Implement the Stock Transfer System
+
+**A. Stock transfer system**
+
+1. Data persistence
+- data/transfers.json – Initialized as []. Each transfer is stored with: id, fromWarehouseId, toWarehouseId, productId, quantity, status, createdAt, completedAt.
+
+2. API (src/pages/api/transfers/index.js)
+- GET – Returns all transfers, newest first.
+- POST – Creates a transfer: validates input, checks stock, updates stock in memory, then persists.
+
+3. Validation and errors
+- Source ≠ destination warehouse.
+- Product and both warehouses must exist.
+- Quantity must be a positive integer.
+- Sufficient stock at source; 400 with available and requested when not.
+
+4. Stock updates
+- Source row: quantity - amount.
+- Destination: existing row quantity + amount, or new stock row if none exists.
+- All changes applied in one in-memory update, then written once to stock.json.
+
+5. History
+- Every completed transfer is appended to transfers.json with status: 'completed', createdAt, and completedAt.
+
+
+**B. Data integrity (atomicity)**
+- No two-step deduct-then-credit: Deduct and add are computed together in memory; a single write to stock.json applies both. A crash never leaves “deducted but not credited”.
+- Write order: stock.json is written first, then transfers.json. So:
+1. Crash before both: no change.
+2. Crash after stock.json only: stock is correct; transfer may be missing from history (audit gap only).
+3. Crash after both: full consistency.
+- This is documented in comments at the top of src/pages/api/transfers/index.js.
+
+**C. Transfer page UI (/transfers)**
+1. AppBar – Same as other pages, with Transfers in the nav.
+
+2. New transfer form
+- From warehouse, To warehouse, Product (dropdowns).
+- Quantity with “max <available>” when product and source are selected.
+- Submit runs POST with loading state and clears form on success.
+
+3. Transfer history
+- Table: Date, Product, From, To, Qty, Status (newest first).
+- Empty state when there are no transfers.
+
+4. Feedback
+- Success alert after a successful transfer (dismissible).
+- Error alert with API message (e.g. “Insufficient stock at source warehouse”) (dismissible).
+- Loading spinner while fetching data and while submitting.
+
+5. Navigation
+- “Transfers” link added in the AppBar on: Dashboard (index.js), Stock Levels, Add Stock, and the Transfers page.
