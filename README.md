@@ -398,3 +398,188 @@ Task Completed: Task 2 – Implement the Stock Transfer System
 
 5. Navigation
 - “Transfers” link added in the AppBar on: Dashboard (index.js), Stock Levels, Add Stock, and the Transfers page.
+
+
+✅ Implementation Summary – Task 3
+
+Name: Joven P. Labiste
+Task Completed: Task 3 – Build Low Stock Alert & Reorder System
+
+### What’s implemented for Task 3
+
+*   **Alerts backend (/api/alerts)**
+    
+    *   New file data/alerts.json stores per-product alert workflow state: productId, workflowStatus (open | in\_progress | resolved), optional notes, and updatedAt.
+        
+    *   New route src/pages/api/alerts/index.js:
+        
+        *   **GET /api/alerts?leadTimeDays=N**
+            
+            *   Reads products.json, stock.json, transfers.json, alerts.json.
+                
+            *   Calculates, per product:
+                
+                *   **Total stock across all warehouses** (sum of all stock rows for that productId).
+                    
+                *   **Stock status category** using reorderPoint = R:
+                    
+                    *   critical: totalStock === 0 or totalStock < 0.5 \* R
+                        
+                    *   low: 0.5 \* R ≤ totalStock < R
+                        
+                    *   adequate: R ≤ totalStock ≤ 2 \* R
+                        
+                    *   overstocked: totalStock > 2 \* R
+                        
+                *   **Transfer velocity per day v**:
+                    
+                    *   Only transfers with status === 'completed' in last 30 days.
+                        
+                    *   v = (sum of quantities in window) / 30.
+                        
+                *   **Lead time L** from query (leadTimeDays), default **7** days if missing/invalid.
+                    
+                *   **Reorder formula**:
+                    
+                    *   If v > 0:
+                        
+                        *   projectedDemand = v × L
+                            
+                        *   targetStock = R + projectedDemand (cover lead-time demand plus keep reorder-point safety stock).
+                            
+                    *   If v === 0 (no or negligible history):
+                        
+                        *   targetStock = R (fall back to reorder point only).
+                            
+                    *   recommendedReorderQty = max( ceil(targetStock − totalStock), 0 ).
+                        
+                *   **Edge cases handled**:
+                    
+                    *   New products / zero history → v = 0, so if totalStock < R we suggest R − totalStock, else 0.
+                        
+                    *   Tiny velocities treated effectively as zero to avoid over-ordering slow movers.
+                        
+                    *   If R ≤ 0 (not expected in this data), we classify positive stock as adequate and very large stock as overstocked for safety.
+                        
+                *   **Days of cover**: daysOfCover = totalStock / v when v > 0, else null.
+                    
+                *   **Workflow status**:
+                    
+                    *   Defaults to 'open' for critical/low, 'resolved' for adequate/overstocked if no saved record.
+                        
+                    *   Uses saved workflowStatus from alerts.json when present.
+                        
+                *   Returns per-product objects with: productId, sku, name, category, reorderPoint, totalStock, status, transferVelocityPerDay, leadTimeDays, recommendedReorderQty, needsReorder, workflowStatus, notes, daysOfCover.
+                    
+        *   **POST /api/alerts**
+            
+            *   Validates productId (positive int) and workflowStatus (open | in\_progress | resolved).
+                
+            *   Upserts into alerts.json with trimmed notes (optional) and updatedAt.
+                
+            *   Used by the UI to track/transition alert workflow state.
+                
+*   **Alerts UI (/alerts)**
+    
+    *   New page src/pages/alerts/index.js (“Alerts & Reorders”):
+        
+        *   **Top metrics cards**:
+            
+            *   **Critical alerts**: count of critical alerts that are needsReorder and workflow open/in\_progress.
+                
+            *   **Low alerts**: same for low.
+                
+            *   **Overstocked**: count of all products with status === 'overstocked'.
+                
+            *   **Lead time (days)**: numeric input + “Apply” button; re-fetches /api/alerts?leadTimeDays=N, so managers can simulate different vendor lead times.
+                
+        *   **Filters**:
+            
+            *   **Stock status**: All, Critical, Low, Adequate, Overstocked.
+                
+            *   **Workflow**:
+                
+                *   “Action needed” → needsReorder and workflowStatus in open or in\_progress.
+                    
+                *   “All statuses”.
+                    
+                *   “Resolved\`”.
+                    
+        *   **Table per product**:
+            
+            *   Product name & SKU, category.
+                
+            *   Total stock, reorder point.
+                
+            *   Stock status chip (Critical/Low/Adequate/Overstocked, color-coded).
+                
+            *   Velocity (units/day) and days of cover (e.g. 12.3d or —).
+                
+            *   Recommended reorder (blank when 0).
+                
+            *   Workflow:
+                
+                *   Chip reflecting current state (Open / In progress / Resolved).
+                    
+                *   TextField select allowing change of workflow status; each change posts to /api/alerts.
+                    
+            *   Rows for critical/low alerts are lightly highlighted (error.lighter / warning.light) to stand out.
+                
+        *   Handles loading (CircularProgress) and API errors (Alert), plus disables status dropdown per-row while an update is in-flight.
+            
+*   **Dashboard integration**
+    
+    *   src/pages/index.js:
+        
+        *   useDashboardData now fetches an additional endpoint:
+            
+            *   /api/alerts?leadTimeDays=7 alongside products/warehouses/stock.
+                
+            *   Stores alerts in local state and exposes them from the hook.
+                
+        *   New computed metric:
+            
+            *   openAlertsCount = alerts.filter(a => a.needsReorder && a.workflowStatus !== 'resolved').length.
+                
+        *   Reworked the fifth metric card into **“Low stock & alerts”**:
+            
+            *   Main number: existing lowStockCount (products below reorder point across all warehouses).
+                
+            *   Subtext: Open alerts: N from openAlertsCount.
+                
+            *   Styling: highlights when either low-stock items or open alerts exist.
+                
+            *   Adds a small **“View alerts”** button linking directly to /alerts, making the alert system part of the main command center.
+                
+    *   **Navigation**:
+        
+        *   Added an **Alerts** button to the AppBar in:
+            
+            *   src/pages/index.js (Dashboard)
+                
+            *   src/pages/stock/index.js (Stock Levels)
+                
+            *   src/pages/stock/add.js (Add Stock)
+                
+            *   src/pages/transfers/index.js (Transfers)
+                
+        *   The /alerts page itself includes an Alerts tab for consistency.
+            
+
+### How to use it
+
+*   **Review alerts**:
+    
+    *   Open /alerts. By default you see actionable (open/in-progress) critical/low items with recommended reorder quantities based on total stock, reorder point, 30-day transfer velocity, and a 7-day lead time.
+        
+*   **Change lead time**:
+    
+    *   Adjust the lead time card’s value (e.g. 14 days) and click **Apply** to recompute all recommendations under a different vendor lead time assumption.
+        
+*   **Work alerts**:
+    
+    *   Use the workflow dropdown to move items from **Open → In progress → Resolved** as you place orders or resolve issues; the state persists in alerts.json.
+        
+*   **From the dashboard**:
+    
+    *   The “Low stock & alerts” card shows how many products are below reorder point and how many open alerts exist; click **View alerts** to drill into details.
