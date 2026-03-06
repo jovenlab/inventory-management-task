@@ -143,6 +143,12 @@ In your README, write 1-2 paragraphs addressing:
 
 This is not a trick question — we want to understand how you think about systems, not just how you write code.
 
+### Task 4B – Scaling Discussion
+
+At the current scale, JSON file storage and in-process file reads/writes are acceptable, but they would be the first thing to break with 500 warehouses, 10,000 products, and 50 concurrent users. Every API call re-reads and rewrites whole JSON files under a single Node.js process, so latency and I/O contention would grow quickly, concurrent writes could overwrite each other, and there is no real transactionality or indexing. As data grows, computing aggregates like total inventory value or alert calculations by scanning entire files on each request would also become too slow and memory-heavy.
+
+To evolve this system, I would move persistence into a real database (e.g. PostgreSQL for strong consistency and relational modelling), add proper indexing on hot paths (product, warehouse, stock, transfer, and alert tables), and push aggregate queries into the database instead of recomputing them in application code. For scale and reliability, I’d put the Next.js app behind a load balancer, use a connection-pooled database, and introduce a background worker (e.g. with a job queue like BullMQ + Redis) for heavier calculations such as periodic inventory valuation and alert generation. For read-heavy dashboard traffic, I’d add caching (e.g. Redis or a managed cache) for frequently requested aggregates and possibly adopt CQRS-style read models, so writes remain transactional while the dashboard reads from precomputed, denormalized views.
+
 ---
 
 ## 📦 Getting Started
@@ -583,3 +589,213 @@ Task Completed: Task 3 – Build Low Stock Alert & Reorder System
 *   **From the dashboard**:
     
     *   The “Low stock & alerts” card shows how many products are below reorder point and how many open alerts exist; click **View alerts** to drill into details.
+
+
+
+
+✅ Implementation Summary – Task 4
+
+Name: Joven P. Labiste
+Task Completed: Task 4 – Bug Investigation & System Design
+
+### A. Bug Hunt – What I Found and Fixed
+
+**1\. Tracing where the dashboard value comes from**
+
+*   **Dashboard calculations** are all in src/pages/index.js.
+    
+    *   totalValue is computed as:
+
+    `const totalValue = useMemo(() => {
+        return stock.reduce((sum, item) => {
+            const product = products.find((p) => p.id === item.productId);
+            return sum + (product ? product.unitCost * item.quantity : 0);
+        }, 0);
+    }, [products, stock]);`
+
+*   This tells us: **any drift in inventory value must come from inconsistent unitCost or mismatched productId ↔ id relationships**, not from client-side state mutation (it re-computes from API data every render).
+    
+
+**2\. Checking how products and stock are stored and mutated**
+
+*   Seed data uses **decimal unit costs**:
+        `
+        {
+            "id": 1,
+            "sku": "ECO-UTN-001",
+            "name": "Bamboo Spork Set",
+            "category": "Utensils",
+            "unitCost": 2.50,
+            "reorderPoint": 100
+        },
+        {
+            "id": 2,
+            "sku": "ECO-PKG-002",
+            "name": "Compostable Food Container 32oz",
+            "category": "Packaging",
+            "unitCost": 0.85,
+            "reorderPoint": 500
+        },
+        `
+
+*   **Stock** is integer quantities:
+        `
+            {
+                "id": 1,
+                "productId": 1,
+                "warehouseId": 1,
+                "quantity": 50
+            },
+        `
+
+*   **Adding products** via `/api/products` (POST) keeps numeric types as sent by the client:
+
+    `  if (req.method === 'GET') {
+        res.status(200).json(products);
+    } else if (req.method === 'POST') {
+        const newProduct = req.body;
+        newProduct.id = products.length ? Math.max(...products.map(p => p.id)) + 1 : 1;
+        products.push(newProduct);
+        fs.writeFileSync(filePath, JSON.stringify(products, null, 2));
+    }
+    `
+
+*  On the client, `AddProduct` already parses values correctly:
+
+`
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...product,
+        unitCost: parseFloat(product.unitCost),
+        reorderPoint: parseInt(product.reorderPoint),
+      }),
+    });
+  }
+`
+
+So **newly created products have correct decimal unitCost** and are persisted as such.
+
+**3\. Focusing on “after certain product management operations”**
+
+Given the report, I focused on **edit/delete flows** rather than create:
+
+*   Product listing and delete are standard and don’t touch unitCost math.
+    
+*   The interesting part is **editing a product** (PUT /api/products/\[id\]).
+    
+
+The edit form sends:
+
+`
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch(`/api/products/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...product,
+        unitCost: parseFloat(product.unitCost),
+        reorderPoint: parseInt(product.reorderPoint),
+      }),
+    });
+  }
+`
+
+So the browser always sends **unitCost as a decimal number**.
+
+However, the API’s PUT handler was doing this:
+
+`
+  else if (req.method === 'PUT') {
+    const index = products.findIndex((p) => p.id === parseInt(id));
+    if (index !== -1) {
+      // Sanitize numeric fields for data consistency
+      const numericFields = ['unitCost', 'reorderPoint'];
+      const sanitizedData = { ...req.body };
+      numericFields.forEach(field => {
+        if (sanitizedData[field] !== undefined) {
+          sanitizedData[field] = parseInt(sanitizedData[field]);
+        }
+      });
+      products[index] = { ...products[index], ...sanitizedData, id: parseInt(id) };
+      fs.writeFileSync(filePath, JSON.stringify(products, null, 2));
+      res.status(200).json(products[index]);
+    }
+  }
+`
+**Root cause:**
+
+*   unitCost was being sanitized with **parseInt**, which **silently drops the decimal portion** (e.g. 2.50 → 2, 0.85 → 0).
+    
+*   Every time a product is edited, its unitCost is truncated to an integer.
+    
+*   Because totalValue multiplies unitCost \* quantity, **the inventory value on the dashboard shifts after edits**, even though quantities haven’t changed.
+    
+*   This feels like “drift after normal use” from a warehouse manager’s perspective: edit product details a few times, and the inventory valuation diverges from what they expect by potentially large amounts (especially for low per-unit costs or high-quantity items).
+    
+
+I also confirmed that **IDs remain numeric and consistent** across products and stock, so the main bug is in numeric-coercion, not mismatched joins.
+
+**4\. The fix**
+
+I updated the PUT handler to treat unitCost as a float while keeping reorderPoint as an integer:
+
+
+`
+  else if (req.method === 'PUT') {
+    const index = products.findIndex((p) => p.id === parseInt(id));
+    if (index !== -1) {
+      // Sanitize numeric fields for data consistency
+      const sanitizedData = { ...req.body };
+      if (sanitizedData.unitCost !== undefined) {
+        sanitizedData.unitCost = parseFloat(sanitizedData.unitCost);
+      }
+      if (sanitizedData.reorderPoint !== undefined) {
+        sanitizedData.reorderPoint = parseInt(sanitizedData.reorderPoint);
+      }
+      products[index] = { ...products[index], ...sanitizedData, id: parseInt(id) };
+      fs.writeFileSync(filePath, JSON.stringify(products, null, 2));
+      res.status(200).json(products[index]);
+    }
+  }
+`
+
+**Effect of the fix:**
+
+*   **Before**: editing a product with unitCost = 0.85 would store 0 and the dashboard would value that product’s stock at $0, even though there’s real inventory.
+    
+*   **After**: editing preserves unitCost as a decimal (e.g. 0.85 stays 0.85), so totalValue and all downstream value-based metrics stay consistent over time as managers update product info.
+    
+
+In your video walkthrough, a nice way to illustrate this is:
+
+1.  Note a product’s stock and unit cost from Products and Stock pages.
+    
+2.  Show the dashboard’s Inventory Value.
+    
+3.  Edit the product’s unit cost (especially to a non-integer value like 0.85 or 3.25).
+    
+4.  Refresh the dashboard and point out that the new total reflects the precise decimal cost, no longer rounded down.
+    
+
+### B. Scaling Write-up (what I added to README)
+
+I added a **Task 4B – Scaling Discussion** section near the Task 4 description in README.md that covers:
+
+*   **What breaks first**: JSON file storage with full-file reads/writes per request, no transactions, no indexing, and aggregate calculations done in-process. At 500 warehouses and 10,000 products, this becomes I/O-bound and fragile under 50 concurrent users.
+    
+*   **How to evolve the system**:
+    
+    *   Move to a proper database (e.g. PostgreSQL) with normalized tables for products, warehouses, stock, transfers, alerts.
+        
+    *   Add indexes on the main query dimensions (product/warehouse IDs, dates for transfers, etc.).
+        
+    *   Push heavy aggregation (inventory valuation, per-warehouse stock, alert derivation) into SQL queries or materialized views instead of scanning JSON in Node.
+        
+    *   Introduce a background worker (job queue + worker process) for periodic computations and heavy workflows, plus caching (e.g. Redis) or CQRS-style read models for fast dashboard reads.
+        
+*   **Technologies and patterns**: PostgreSQL (or similar RDBMS), a job queue (BullMQ + Redis), app-level caching, and a load-balanced Next.js deployment with DB connection pooling.
