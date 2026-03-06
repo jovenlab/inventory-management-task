@@ -143,6 +143,12 @@ In your README, write 1-2 paragraphs addressing:
 
 This is not a trick question — we want to understand how you think about systems, not just how you write code.
 
+### Task 4B – Scaling Discussion
+
+At the current scale, JSON file storage and in-process file reads/writes are acceptable, but they would be the first thing to break with 500 warehouses, 10,000 products, and 50 concurrent users. Every API call re-reads and rewrites whole JSON files under a single Node.js process, so latency and I/O contention would grow quickly, concurrent writes could overwrite each other, and there is no real transactionality or indexing. As data grows, computing aggregates like total inventory value or alert calculations by scanning entire files on each request would also become too slow and memory-heavy.
+
+To evolve this system, I would move persistence into a real database (e.g. PostgreSQL for strong consistency and relational modelling), add proper indexing on hot paths (product, warehouse, stock, transfer, and alert tables), and push aggregate queries into the database instead of recomputing them in application code. For scale and reliability, I’d put the Next.js app behind a load balancer, use a connection-pooled database, and introduce a background worker (e.g. with a job queue like BullMQ + Redis) for heavier calculations such as periodic inventory valuation and alert generation. For read-heavy dashboard traffic, I’d add caching (e.g. Redis or a managed cache) for frequently requested aggregates and possibly adopt CQRS-style read models, so writes remain transactional while the dashboard reads from precomputed, denormalized views.
+
 ---
 
 ## 📦 Getting Started
