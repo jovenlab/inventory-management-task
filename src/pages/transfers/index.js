@@ -25,6 +25,9 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import HistoryIcon from '@mui/icons-material/History';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import { buildCsv, downloadTextFile, exportTableToPdf } from '@/utils/export';
 const API_BASE = '';
 export default function TransfersPage() {
   const [products, setProducts] = useState([]);
@@ -133,6 +136,43 @@ export default function TransfersPage() {
     const w = warehouses.find((x) => x.id === id);
     return w ? `${w.name} (${w.code})` : `Warehouse #${id}`;
   };
+
+  const handleExportCsv = () => {
+    const csv = buildCsv(transfers, [
+      {
+        header: 'Date',
+        value: (t) => (t.createdAt ? new Date(t.createdAt).toLocaleString() : ''),
+      },
+      { header: 'Product', value: (t) => getProductName(t.productId) },
+      { header: 'From', value: (t) => getWarehouseName(t.fromWarehouseId) },
+      { header: 'To', value: (t) => getWarehouseName(t.toWarehouseId) },
+      { header: 'Qty', value: (t) => t.quantity },
+      { header: 'Status', value: (t) => t.status || 'completed' },
+    ]);
+    downloadTextFile({
+      filename: `transfers-${new Date().toISOString().slice(0, 10)}.csv`,
+      contents: csv,
+      mimeType: 'text/csv;charset=utf-8;',
+    });
+  };
+
+  const handleExportPdf = async () => {
+    await exportTableToPdf({
+      filename: `transfers-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Transfer history',
+      headers: ['Date', 'Product', 'From', 'To', 'Qty', 'Status'],
+      rows: transfers.map((t) => [
+        t.createdAt
+          ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+          : '—',
+        getProductName(t.productId),
+        getWarehouseName(t.fromWarehouseId),
+        getWarehouseName(t.toWarehouseId),
+        t.quantity ?? 0,
+        t.status || 'completed',
+      ]),
+    });
+  };
   return (
     <>
       <AppBar position="static" color="primary" elevation={0}>
@@ -168,7 +208,7 @@ export default function TransfersPage() {
           pb: 4,
         }}
       >
-        <Container maxWidth="lg" sx={{ pt: 4, mb: 4 }}>
+        <Container id="main-content" maxWidth="lg" sx={{ pt: 4, mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom fontWeight={600} color="primary.dark">
             Stock Transfers
           </Typography>
@@ -279,12 +319,32 @@ export default function TransfersPage() {
                 </Box>
               </Paper>
               <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
-                <Typography variant="h6" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <HistoryIcon color="primary" />
-                  Transfer history
-                </Typography>
+                <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
+                    <HistoryIcon color="primary" />
+                    Transfer history
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FileDownloadOutlinedIcon />}
+                    onClick={handleExportCsv}
+                    disabled={transfers.length === 0}
+                  >
+                    Export CSV
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<PictureAsPdfOutlinedIcon />}
+                    onClick={handleExportPdf}
+                    disabled={transfers.length === 0}
+                  >
+                    Export PDF
+                  </Button>
+                </Box>
                 <TableContainer>
-                  <Table size="small">
+                  <Table size="small" aria-label="Transfer history table">
                     <TableHead>
                       <TableRow sx={{ bgcolor: 'action.hover' }}>
                         <TableCell><strong>Date</strong></TableCell>

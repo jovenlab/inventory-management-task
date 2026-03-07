@@ -22,11 +22,16 @@ import {
   Button,
   CircularProgress,
   Alert,
+  InputAdornment,
 } from '@mui/material';
 import ParkIcon from '@mui/icons-material/Park';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import SearchIcon from '@mui/icons-material/Search';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import { buildCsv, downloadTextFile, exportTableToPdf } from '@/utils/export';
 const API_BASE = '';
 const WORKFLOW_OPTIONS = [
   { value: 'open', label: 'Open' },
@@ -42,6 +47,7 @@ export default function AlertsPage() {
   const [updatingId, setUpdatingId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all'); // all | critical | low | adequate | overstocked
   const [workflowFilter, setWorkflowFilter] = useState('actionable'); // actionable | all | resolved
+  const [search, setSearch] = useState('');
   const loadAlerts = (leadTime) => {
     setLoading(true);
     setError(null);
@@ -62,7 +68,7 @@ export default function AlertsPage() {
   };
   useEffect(() => {
     loadAlerts(leadTimeDays);
-  }, []);
+  }, [leadTimeDays]);
   const handleLeadTimeApply = () => {
     const num = Number(leadTimeInput);
     if (!Number.isFinite(num) || num <= 0) {
@@ -70,7 +76,6 @@ export default function AlertsPage() {
       return;
     }
     setLeadTimeDays(num);
-    loadAlerts(num);
   };
   const handleWorkflowChange = async (productId, status) => {
     setUpdatingId(productId);
@@ -120,6 +125,7 @@ export default function AlertsPage() {
   );
   const filteredAlerts = useMemo(() => {
     let list = alerts;
+    const q = search.trim().toLowerCase();
     if (statusFilter !== 'all') {
       list = list.filter((a) => a.status === statusFilter);
     }
@@ -132,8 +138,67 @@ export default function AlertsPage() {
     } else if (workflowFilter === 'resolved') {
       list = list.filter((a) => a.workflowStatus === 'resolved');
     }
+    if (q) {
+      list = list.filter(
+        (a) =>
+          String(a.sku ?? '').toLowerCase().includes(q) ||
+          String(a.name ?? '').toLowerCase().includes(q) ||
+          String(a.category ?? '').toLowerCase().includes(q)
+      );
+    }
     return list;
-  }, [alerts, statusFilter, workflowFilter]);
+  }, [alerts, statusFilter, workflowFilter, search]);
+
+  const handleExportCsv = () => {
+    const csv = buildCsv(filteredAlerts, [
+      { header: 'SKU', value: (a) => a.sku },
+      { header: 'Product', value: (a) => a.name },
+      { header: 'Category', value: (a) => a.category },
+      { header: 'Total stock', value: (a) => a.totalStock },
+      { header: 'Reorder point', value: (a) => a.reorderPoint },
+      { header: 'Stock status', value: (a) => a.status },
+      { header: 'Velocity per day', value: (a) => a.transferVelocityPerDay },
+      { header: 'Days of cover', value: (a) => a.daysOfCover ?? '' },
+      { header: 'Recommended reorder', value: (a) => a.recommendedReorderQty },
+      { header: 'Workflow', value: (a) => a.workflowStatus },
+    ]);
+    downloadTextFile({
+      filename: `alerts-${new Date().toISOString().slice(0, 10)}.csv`,
+      contents: csv,
+      mimeType: 'text/csv;charset=utf-8;',
+    });
+  };
+
+  const handleExportPdf = async () => {
+    await exportTableToPdf({
+      filename: `alerts-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: `Alerts & reorders (lead time: ${leadTimeDays}d)`,
+      headers: [
+        'SKU',
+        'Product',
+        'Category',
+        'Total stock',
+        'Reorder point',
+        'Status',
+        'Velocity/day',
+        'Days cover',
+        'Reorder qty',
+        'Workflow',
+      ],
+      rows: filteredAlerts.map((a) => [
+        a.sku ?? '',
+        a.name ?? '',
+        a.category ?? '',
+        a.totalStock ?? 0,
+        a.reorderPoint ?? 0,
+        a.status ?? '',
+        Number(a.transferVelocityPerDay ?? 0).toFixed(2),
+        a.daysOfCover != null ? `${a.daysOfCover}d` : '—',
+        a.recommendedReorderQty ?? 0,
+        a.workflowStatus ?? '',
+      ]),
+    });
+  };
   const renderStatusChip = (status) => {
     if (status === 'critical') {
       return <Chip label="Critical" color="error" size="small" />;
@@ -191,7 +256,7 @@ export default function AlertsPage() {
           pb: 4,
         }}
       >
-        <Container maxWidth="lg" sx={{ pt: 4, mb: 4 }}>
+        <Container id="main-content" maxWidth="lg" sx={{ pt: 4, mb: 4 }}>
           <Typography
             variant="h4"
             component="h1"
@@ -316,7 +381,21 @@ export default function AlertsPage() {
                 justifyContent: 'space-between',
               }}
             >
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  placeholder="Search SKU, name, category..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ minWidth: 240 }}
+                />
                 <TextField
                   select
                   size="small"
@@ -344,9 +423,29 @@ export default function AlertsPage() {
                   <MenuItem value="resolved">Resolved</MenuItem>
                 </TextField>
               </Box>
-              <Typography variant="body2" color="text.secondary">
-                {filteredAlerts.length} products in view
-              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  {filteredAlerts.length} products in view
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<FileDownloadOutlinedIcon />}
+                  onClick={handleExportCsv}
+                  disabled={filteredAlerts.length === 0}
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<PictureAsPdfOutlinedIcon />}
+                  onClick={handleExportPdf}
+                  disabled={filteredAlerts.length === 0}
+                >
+                  Export PDF
+                </Button>
+              </Box>
             </Box>
           </Paper>
           {loading ? (

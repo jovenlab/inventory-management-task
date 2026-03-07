@@ -84,7 +84,7 @@ export default function AddStock() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
+      <Container id="main-content" maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
         <Paper elevation={3} sx={{ p: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Add Stock Record

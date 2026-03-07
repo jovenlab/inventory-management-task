@@ -1,8 +1,20 @@
 import '@/styles/globals.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import {
+  Box,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { useRouter } from 'next/router';
@@ -13,6 +25,7 @@ const COLOR_MODE_STORAGE_KEY = 'inventory_color_mode';
 export default function App({ Component, pageProps }) {
   const router = useRouter();
   const [mode, setMode] = useState('light');
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Load initial preference from localStorage (if present)
   useEffect(() => {
@@ -33,9 +46,9 @@ export default function App({ Component, pageProps }) {
 
   const theme = useMemo(() => createAppTheme(mode), [mode]);
 
-  const toggleMode = () => {
+  const toggleMode = useCallback(() => {
     setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
+  }, []);
 
   // Global keyboard shortcuts for navigation (Alt + key)
   useEffect(() => {
@@ -50,6 +63,10 @@ export default function App({ Component, pageProps }) {
 
       const key = event.key.toLowerCase();
       switch (key) {
+        case '/':
+          event.preventDefault();
+          setShortcutsOpen(true);
+          break;
         case 'd':
           event.preventDefault();
           router.push('/');
@@ -74,6 +91,10 @@ export default function App({ Component, pageProps }) {
           event.preventDefault();
           router.push('/alerts');
           break;
+        case 'm':
+          event.preventDefault();
+          toggleMode();
+          break;
         default:
           break;
       }
@@ -81,7 +102,7 @@ export default function App({ Component, pageProps }) {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [router]);
+  }, [router, toggleMode]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -98,6 +119,47 @@ export default function App({ Component, pageProps }) {
         }}
       >
         <Component {...pageProps} />
+
+        <Dialog
+          open={shortcutsOpen}
+          onClose={() => setShortcutsOpen(false)}
+          aria-labelledby="keyboard-shortcuts-title"
+        >
+          <DialogTitle id="keyboard-shortcuts-title">Keyboard shortcuts</DialogTitle>
+          <DialogContent dividers>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Tip: shortcuts use <strong>Alt</strong> + key. Press <strong>Esc</strong> to close.
+            </Typography>
+            <Divider sx={{ mb: 1 }} />
+            <List dense>
+              <ListItem>
+                <ListItemText primary="Alt + D" secondary="Go to Dashboard" />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Alt + P" secondary="Go to Products" />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Alt + W" secondary="Go to Warehouses" />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Alt + S" secondary="Go to Stock Levels" />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Alt + T" secondary="Go to Transfers" />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Alt + A" secondary="Go to Alerts" />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Alt + M" secondary="Toggle light/dark mode" />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Alt + /" secondary="Open this help dialog" />
+              </ListItem>
+            </List>
+          </DialogContent>
+        </Dialog>
+
         {/* Floating dark mode toggle visible on all pages */}
         <Box
           sx={{

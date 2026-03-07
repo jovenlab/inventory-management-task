@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Container,
   Typography,
   Button,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -20,15 +21,23 @@ import {
   AppBar,
   Toolbar,
   Box,
+  InputAdornment,
+  MenuItem,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import SearchIcon from '@mui/icons-material/Search';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import { buildCsv, downloadTextFile, exportTableToPdf } from '@/utils/export';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('all');
 
   useEffect(() => {
     fetchProducts();
@@ -65,6 +74,58 @@ export default function Products() {
     }
   };
 
+  const categories = useMemo(() => {
+    const unique = new Set();
+    products.forEach((p) => {
+      if (p?.category) unique.add(p.category);
+    });
+    return Array.from(unique).sort((a, b) => String(a).localeCompare(String(b)));
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products.filter((p) => {
+      if (!p) return false;
+      if (category !== 'all' && p.category !== category) return false;
+      if (!q) return true;
+      return (
+        String(p.sku ?? '').toLowerCase().includes(q) ||
+        String(p.name ?? '').toLowerCase().includes(q) ||
+        String(p.category ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [products, search, category]);
+
+  const handleExportCsv = () => {
+    const csv = buildCsv(filteredProducts, [
+      { header: 'SKU', value: (r) => r.sku },
+      { header: 'Name', value: (r) => r.name },
+      { header: 'Category', value: (r) => r.category },
+      { header: 'Unit cost', value: (r) => r.unitCost },
+      { header: 'Reorder point', value: (r) => r.reorderPoint },
+    ]);
+    downloadTextFile({
+      filename: `products-${new Date().toISOString().slice(0, 10)}.csv`,
+      contents: csv,
+      mimeType: 'text/csv;charset=utf-8;',
+    });
+  };
+
+  const handleExportPdf = async () => {
+    await exportTableToPdf({
+      filename: `products-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Products',
+      headers: ['SKU', 'Name', 'Category', 'Unit cost', 'Reorder point'],
+      rows: filteredProducts.map((p) => [
+        p.sku ?? '',
+        p.name ?? '',
+        p.category ?? '',
+        Number(p.unitCost ?? 0).toFixed(2),
+        p.reorderPoint ?? 0,
+      ]),
+    });
+  };
+
   return (
     <>
       <AppBar position="static">
@@ -88,7 +149,7 @@ export default function Products() {
         </Toolbar>
       </AppBar>
 
-      <Container sx={{ mt: 4, mb: 4 }}>
+      <Container id="main-content" sx={{ mt: 4, mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             Products
@@ -103,8 +164,60 @@ export default function Products() {
           </Button>
         </Box>
 
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder="Search SKU, name, category..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 260 }}
+          />
+          <TextField
+            size="small"
+            select
+            label="Category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            {categories.map((c) => (
+              <MenuItem key={c} value={c}>
+                {c}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', ml: { xs: 0, sm: 'auto' } }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FileDownloadOutlinedIcon />}
+              onClick={handleExportCsv}
+              disabled={filteredProducts.length === 0}
+            >
+              Export CSV
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PictureAsPdfOutlinedIcon />}
+              onClick={handleExportPdf}
+              disabled={filteredProducts.length === 0}
+            >
+              Export PDF
+            </Button>
+          </Box>
+        </Box>
+
         <TableContainer component={Paper}>
-          <Table>
+          <Table aria-label="Products table">
             <TableHead>
               <TableRow>
                 <TableCell><strong>SKU</strong></TableCell>
@@ -116,12 +229,12 @@ export default function Products() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>{product.sku}</TableCell>
                   <TableCell>{product.name}</TableCell>
                   <TableCell>{product.category}</TableCell>
-                  <TableCell align="right">${product.unitCost.toFixed(2)}</TableCell>
+                  <TableCell align="right">${Number(product.unitCost ?? 0).toFixed(2)}</TableCell>
                   <TableCell align="right">{product.reorderPoint}</TableCell>
                   <TableCell>
                     <IconButton
@@ -129,6 +242,7 @@ export default function Products() {
                       component={Link}
                       href={`/products/edit/${product.id}`}
                       size="small"
+                      aria-label={`Edit product ${product.sku}`}
                     >
                       <EditIcon />
                     </IconButton>
@@ -136,16 +250,17 @@ export default function Products() {
                       color="error"
                       onClick={() => handleClickOpen(product.id)}
                       size="small"
+                      aria-label={`Delete product ${product.sku}`}
                     >
                       <DeleteIcon />
                     </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
-              {products.length === 0 && (
+              {filteredProducts.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} align="center">
-                    No products available.
+                    No products match the current filters.
                   </TableCell>
                 </TableRow>
               )}

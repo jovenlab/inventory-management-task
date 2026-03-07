@@ -807,3 +807,48 @@ Name: Joven P. Labiste
 Task Completed: Dark Mode
 
 *   Dark mode with a global toggle, persisted preference, keyboard navigation, and an accessible skip link is now wired through _app. Next I’ll add export (CSV/PDF) on the dashboard inventory table, then layer in advanced filtering, accessibility tweaks on action icons, a minimal unit test script, and basic TypeScript support with a typed component.
+
+
+### Implemented optional enhancements
+
+*   **Export (CSV + PDF)**: Added export buttons on **Dashboard (Inventory overview)**, **Products**, **Warehouses**, **Stock Levels**, **Transfers**, and **Alerts**.
+    
+*   **CSV** downloads a .csv
+    
+*   **PDF** generates a table PDF via jspdf/jspdf-autotable
+    
+*   **Keyboard shortcuts**
+    
+*   **Alt + D/P/W/S/T/A**: Navigate to Dashboard / Products / Warehouses / Stock / Transfers / Alerts
+    
+*   **Alt + M**: Toggle light/dark mode
+    
+*   **Alt + /**: Opens a **Keyboard shortcuts** help dialog
+    
+*   **Advanced filtering**
+    
+*   **Products**: search + category filter
+    
+*   **Warehouses**: search (code/name/location)
+    
+*   **Stock**: search + product filter + warehouse filter + min quantity
+    
+*   **Alerts**: search + existing status/workflow filters
+    
+*   **Accessibility improvements**
+    
+*   Skip link now reliably lands on content (added id="main-content" across pages)
+    
+*   Added aria-labels to icon-only action buttons (edit/delete)
+    
+*   **Unit tests**
+    
+*   Added **Jest** + Testing Library setup, plus a starter test for CSV escaping (src/utils/export.test.ts)
+    
+*   Run: npm test
+    
+*   **TypeScript (incremental)**
+    
+*   Added TS support (tsconfig.json, next-env.d.ts) and a typed export utility at src/utils/export.ts
+    
+*   Run: npm run typecheck

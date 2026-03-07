@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Container,
   Typography,
   Button,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -20,15 +21,21 @@ import {
   AppBar,
   Toolbar,
   Box,
+  InputAdornment,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import SearchIcon from '@mui/icons-material/Search';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import { buildCsv, downloadTextFile, exportTableToPdf } from '@/utils/export';
 
 export default function Warehouses() {
   const [warehouses, setWarehouses] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchWarehouses();
@@ -65,6 +72,41 @@ export default function Warehouses() {
     }
   };
 
+  const filteredWarehouses = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return warehouses;
+    return warehouses.filter((w) => {
+      if (!w) return false;
+      return (
+        String(w.code ?? '').toLowerCase().includes(q) ||
+        String(w.name ?? '').toLowerCase().includes(q) ||
+        String(w.location ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [warehouses, search]);
+
+  const handleExportCsv = () => {
+    const csv = buildCsv(filteredWarehouses, [
+      { header: 'Code', value: (r) => r.code },
+      { header: 'Name', value: (r) => r.name },
+      { header: 'Location', value: (r) => r.location },
+    ]);
+    downloadTextFile({
+      filename: `warehouses-${new Date().toISOString().slice(0, 10)}.csv`,
+      contents: csv,
+      mimeType: 'text/csv;charset=utf-8;',
+    });
+  };
+
+  const handleExportPdf = async () => {
+    await exportTableToPdf({
+      filename: `warehouses-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Warehouses',
+      headers: ['Code', 'Name', 'Location'],
+      rows: filteredWarehouses.map((w) => [w.code ?? '', w.name ?? '', w.location ?? '']),
+    });
+  };
+
   return (
     <>
       <AppBar position="static">
@@ -88,7 +130,7 @@ export default function Warehouses() {
         </Toolbar>
       </AppBar>
 
-      <Container sx={{ mt: 4, mb: 4 }}>
+      <Container id="main-content" sx={{ mt: 4, mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             Warehouses
@@ -103,8 +145,45 @@ export default function Warehouses() {
           </Button>
         </Box>
 
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder="Search code, name, location..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 260 }}
+          />
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', ml: { xs: 0, sm: 'auto' } }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FileDownloadOutlinedIcon />}
+              onClick={handleExportCsv}
+              disabled={filteredWarehouses.length === 0}
+            >
+              Export CSV
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PictureAsPdfOutlinedIcon />}
+              onClick={handleExportPdf}
+              disabled={filteredWarehouses.length === 0}
+            >
+              Export PDF
+            </Button>
+          </Box>
+        </Box>
+
         <TableContainer component={Paper}>
-          <Table>
+          <Table aria-label="Warehouses table">
             <TableHead>
               <TableRow>
                 <TableCell><strong>Code</strong></TableCell>
@@ -114,7 +193,7 @@ export default function Warehouses() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {warehouses.map((warehouse) => (
+              {filteredWarehouses.map((warehouse) => (
                 <TableRow key={warehouse.id}>
                   <TableCell>{warehouse.code}</TableCell>
                   <TableCell>{warehouse.name}</TableCell>
@@ -125,6 +204,7 @@ export default function Warehouses() {
                       component={Link}
                       href={`/warehouses/edit/${warehouse.id}`}
                       size="small"
+                      aria-label={`Edit warehouse ${warehouse.code}`}
                     >
                       <EditIcon />
                     </IconButton>
@@ -132,16 +212,17 @@ export default function Warehouses() {
                       color="error"
                       onClick={() => handleClickOpen(warehouse.id)}
                       size="small"
+                      aria-label={`Delete warehouse ${warehouse.code}`}
                     >
                       <DeleteIcon />
                     </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
-              {warehouses.length === 0 && (
+              {filteredWarehouses.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} align="center">
-                    No warehouses available.
+                    No warehouses match the current filters.
                   </TableCell>
                 </TableRow>
               )}

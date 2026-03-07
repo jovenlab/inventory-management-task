@@ -33,6 +33,8 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SearchIcon from '@mui/icons-material/Search';
 import ParkIcon from '@mui/icons-material/Park';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import {
   PieChart,
   Pie,
@@ -46,6 +48,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { buildCsv, downloadTextFile, exportTableToPdf } from '@/utils/export';
 
 const API_BASE = '';
 
@@ -98,7 +101,7 @@ function useDashboardData() {
 
 function DashboardSkeleton() {
   return (
-    <Container sx={{ pt: 4, mb: 4 }}>
+    <Container id="main-content" sx={{ pt: 4, mb: 4 }}>
       <Skeleton variant="text" width={200} height={48} sx={{ mb: 3 }} />
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {[1, 2, 3, 4, 5].map((i) => (
@@ -181,6 +184,38 @@ export default function Home() {
     return list;
   }, [inventoryOverview, search, statusFilter]);
 
+  const handleExportOverviewCsv = () => {
+    const csv = buildCsv(filteredOverview, [
+      { header: 'SKU', value: (r) => r.sku },
+      { header: 'Product', value: (r) => r.name },
+      { header: 'Category', value: (r) => r.category },
+      { header: 'Total stock', value: (r) => r.totalQuantity },
+      { header: 'Reorder point', value: (r) => r.reorderPoint },
+      { header: 'Status', value: (r) => (r.isLowStock ? 'Low stock' : 'In stock') },
+    ]);
+    downloadTextFile({
+      filename: `inventory-overview-${new Date().toISOString().slice(0, 10)}.csv`,
+      contents: csv,
+      mimeType: 'text/csv;charset=utf-8;',
+    });
+  };
+
+  const handleExportOverviewPdf = async () => {
+    await exportTableToPdf({
+      filename: `inventory-overview-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Inventory overview',
+      headers: ['SKU', 'Product', 'Category', 'Total stock', 'Reorder point', 'Status'],
+      rows: filteredOverview.map((r) => [
+        r.sku ?? '',
+        r.name ?? '',
+        r.category ?? '',
+        r.totalQuantity ?? 0,
+        r.reorderPoint ?? 0,
+        r.isLowStock ? 'Low stock' : 'In stock',
+      ]),
+    });
+  };
+
   const chartValueByCategory = useMemo(() => {
     const byCategory = {};
     inventoryOverview.forEach((item) => {
@@ -241,7 +276,7 @@ export default function Home() {
             <Button color="inherit" component={Link} href="/transfers">Transfers</Button>
           </Toolbar>
         </AppBar>
-        <Container sx={{ mt: 4, mb: 4 }}>
+        <Container id="main-content" sx={{ mt: 4, mb: 4 }}>
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
@@ -274,7 +309,7 @@ export default function Home() {
           pb: 4,
         }}
       >
-        <Container sx={{ pt: 4, mb: 4 }} maxWidth="xl">
+        <Container id="main-content" sx={{ pt: 4, mb: 4 }} maxWidth="xl">
           <Typography variant="h4" component="h1" gutterBottom fontWeight={600} color="primary.dark">
             Dashboard
           </Typography>
@@ -478,6 +513,27 @@ export default function Home() {
                 color={statusFilter === 'ok' ? 'success' : 'default'}
                 variant={statusFilter === 'ok' ? 'filled' : 'outlined'}
               />
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', ml: { xs: 0, sm: 'auto' } }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<FileDownloadOutlinedIcon />}
+                onClick={handleExportOverviewCsv}
+                disabled={filteredOverview.length === 0}
+              >
+                Export CSV
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<PictureAsPdfOutlinedIcon />}
+                onClick={handleExportOverviewPdf}
+                disabled={filteredOverview.length === 0}
+              >
+                Export PDF
+              </Button>
             </Box>
           </Box>
 
