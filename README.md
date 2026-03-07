@@ -799,3 +799,11 @@ I added a **Task 4B – Scaling Discussion** section near the Task 4 descripti
     *   Introduce a background worker (job queue + worker process) for periodic computations and heavy workflows, plus caching (e.g. Redis) or CQRS-style read models for fast dashboard reads.
         
 *   **Technologies and patterns**: PostgreSQL (or similar RDBMS), a job queue (BullMQ + Redis), app-level caching, and a load-balanced Next.js deployment with DB connection pooling.
+
+
+✅ Implementation Summary - Optional Enhancements
+
+Name: Joven P. Labiste
+Task Completed: Dark Mode
+
+*   Dark mode with a global toggle, persisted preference, keyboard navigation, and an accessible skip link is now wired through _app. Next I’ll add export (CSV/PDF) on the dashboard inventory table, then layer in advanced filtering, accessibility tweaks on action icons, a minimal unit test script, and basic TypeScript support with a typed component.
